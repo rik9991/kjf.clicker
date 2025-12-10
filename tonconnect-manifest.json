@@ -1,5 +1,7 @@
-"url": "https://mario.github.io/kjf-clicker/",
+{
+  "url": "https://rik9991.github.io/kjf.clicker/",
   "name": "KJF TON Clicker",
-  "iconUrl": "https://github.com/rik9991/kjf.clicker.git",
-  "termsOfServiceUrl": "https://github.com/rik9991/kjf.clicker.git/terms.html",
-  "privacyPolicyUrl": "https://github.com/rik9991/kjf.clicker.git/privacy.html"
+  "iconUrl": "https://rik9991.github.io/kjf.clicker/icon.png",
+  "termsOfServiceUrl": "https://rik9991.github.io/kjf.clicker/terms.html",
+  "privacyPolicyUrl": "https://rik9991.github.io/kjf.clicker/privacy.html"
+}
