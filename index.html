@@ -1,22 +1,21 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>KJF Clicker - TON Mini App</title>
-    
-    <!-- Caricamento delle dipendenze essenziali (CDN) -->
+
+    <!-- CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Caricamento TON Connect UI React SDK -->
+
+    <!-- TON Connect UI React SDK (UMD) -->
     <script src="https://unpkg.com/@tonconnect/ui-react@latest/dist/ton-connect-ui-react.umd.js"></script>
 
     <style>
-        /* Imposta il font Inter e il box-sizing */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f0f2f5;
@@ -30,21 +29,27 @@
     </style>
 </head>
 <body>
-    <!-- Il container principale di React -->
-    <div id="root"></div>
+    <div id="root">
+        <div class="text-center text-gray-500 p-8">Caricamento dell'applicazione in corso...</div>
+    </div>
 
-    <!-- CODICE REACT/JSX: ESEGUITO DA BABEL -->
+    <!-- CODICE REACT: usare type="text/babel" evita problemi di escaping/interpolazione -->
     <script type="text/babel">
-        // Estraggo i componenti globali resi disponibili dal CDN
-        const { useState, useEffect, useCallback, useMemo } = React;
-        const { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, useTonWallet } = TonConnectUiReact;
+        const { useState, useEffect, useMemo } = React;
+        // TonConnectUiReact è esposto dal file UMD; attenzione al nome esatto
+        const {
+            TonConnectUIProvider,
+            TonConnectButton,
+            useTonAddress,
+            useTonConnectUI,
+            useTonWallet
+        } = window.TonConnectUiReact || {};
 
         // --- Variabili Globali (per il Token KJF) ---
         const INITIAL_TOKEN_BALANCE = 1000000;
         const INITIAL_CLICK_VALUE = 1;
         const KJF_SYMBOL = "KJF";
 
-        // Funzione per formattare i numeri (es. 1000000 -> 1M)
         const formatNumber = (num) => {
             if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
             if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -52,32 +57,27 @@
             return num;
         };
 
-        // --- Componente per l'Animazione del Tap ---
         const TapFeedback = ({ id, x, y, value }) => {
             const [isVisible, setIsVisible] = useState(true);
 
             useEffect(() => {
-                const timer = setTimeout(() => {
-                    setIsVisible(false);
-                }, 800); 
+                const timer = setTimeout(() => setIsVisible(false), 800);
                 return () => clearTimeout(timer);
             }, []);
 
             if (!isVisible) return null;
 
-            // Stile per far salire il numero e svanire
             const style = {
                 position: 'absolute',
                 left: x,
                 top: y,
                 pointerEvents: 'none',
                 transition: 'transform 0.8s ease-out, opacity 0.8s ease-out',
-                transform: 'translate(-50%, 0)', // Centro X
+                transform: 'translate(-50%, 0)',
                 opacity: 1,
-                // Applica l'animazione di salita
                 animation: 'tap-up 0.8s ease-out forwards',
             };
-            
+
             return (
                 <div style={style} className="text-2xl font-bold text-green-400 select-none">
                     +{value}
@@ -85,31 +85,32 @@
             );
         };
 
-        // --- Componente Principale del Clicker ---
         const App = () => {
             const [balance, setBalance] = useState(INITIAL_TOKEN_BALANCE);
             const [clickValue, setClickValue] = useState(INITIAL_CLICK_VALUE);
             const [feedback, setFeedback] = useState([]);
             const [isConnected, setIsConnected] = useState(false);
-            const rawAddress = useTonAddress(); // L'indirizzo TON non formattato
-            const wallet = useTonWallet();
-            const { connectUI } = useTonConnectUI();
-            
-            // Controlla se siamo nell'ambiente Telegram Mini App
+
+            // Hook TonConnect (se il bundle è caricato)
+            const rawAddress = useTonAddress ? useTonAddress() : null;
+            const wallet = useTonWallet ? useTonWallet() : null;
+            const tonConnectUI = useTonConnectUI ? useTonConnectUI() : null;
+            const connectUI = tonConnectUI ? tonConnectUI.connectUI : null;
+
+            // Controlla se siamo nell'ambiente Telegram WebApp (TWA)
             const isTWA = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
 
             useEffect(() => {
-                // Aggiorna lo stato di connessione quando cambia l'indirizzo o il wallet
                 setIsConnected(!!wallet);
-                
-                // Inizializzazione per l'ambiente Telegram
-                if (isTWA) {
+
+                if (isTWA && window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.ready === 'function') {
                     window.Telegram.WebApp.ready();
-                    window.Telegram.WebApp.expand();
+                    if (typeof window.Telegram.WebApp.expand === 'function') {
+                        window.Telegram.WebApp.expand();
+                    }
                 }
             }, [wallet, isTWA]);
 
-            // Formatta l'indirizzo per la visualizzazione
             const userFriendlyAddress = useMemo(() => {
                 if (rawAddress) {
                     return rawAddress.slice(0, 4) + '...' + rawAddress.slice(-4);
@@ -117,42 +118,43 @@
                 return 'Non Connesso';
             }, [rawAddress]);
 
-            // Funzione eseguita al click
             const handleTap = (e) => {
+                // Se TonConnect non è disponibile, apriamo il modal se possibile
                 if (!isConnected) {
-                    // Se non connesso, apriamo la modale di connessione
-                    connectUI.openModal();
-                    return; 
+                    if (connectUI && typeof connectUI.openModal === 'function') {
+                        connectUI.openModal();
+                    } else {
+                        // fallback: messaggio in console
+                        console.warn('Wallet non connesso e TonConnect UI non disponibile.');
+                    }
+                    return;
                 }
-                
-                // Aggiorna il saldo
+
                 setBalance(b => b + clickValue);
 
-                // Aggiunge feedback visivo
+                const clientX = (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientX) || e.clientX || window.innerWidth / 2;
+                const clientY = (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY) || e.clientY || window.innerHeight / 2;
+
                 const newFeedback = {
                     id: Date.now(),
-                    // Usiamo e.changedTouches[0] se l'evento è touch, altrimenti e
-                    x: e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
-                    y: e.changedTouches ? e.changedTouches[0].clientY : e.clientY,
+                    x: clientX,
+                    y: clientY,
                     value: clickValue,
                 };
+
                 setFeedback(f => [...f, newFeedback]);
 
-                // Rimuove il feedback dopo un breve ritardo per mantenere la pulizia
                 setTimeout(() => {
                     setFeedback(f => f.filter(item => item.id !== newFeedback.id));
                 }, 800);
             };
-            
-            // Classe condizionale Tailwind per lo sfondo del pulsante
-            const tapAreaClasses = isConnected 
-                ? 'bg-yellow-400 hover:bg-yellow-500 active:scale-95 cursor-pointer' 
+
+            const tapAreaClasses = isConnected
+                ? 'bg-yellow-400 hover:bg-yellow-500 active:scale-95 cursor-pointer'
                 : 'bg-gray-300 cursor-not-allowed';
 
             return (
                 <div className="flex flex-col items-center justify-between w-full max-w-sm h-full max-h-[800px] p-4 bg-white shadow-2xl rounded-2xl border border-gray-100 relative overflow-hidden" style={{ minHeight: '600px' }}>
-                    
-                    {/* Animazione CSS per il feedback del tap */}
                     <style>{`
                         @keyframes tap-up {
                             0% { transform: translate(-50%, 0); opacity: 1; }
@@ -160,19 +162,16 @@
                         }
                     `}</style>
 
-                    {/* Feedback dei click */}
                     {feedback.map(f => (
                         <TapFeedback key={f.id} id={f.id} x={f.x} y={f.y} value={f.value} />
                     ))}
-                    
-                    {/* Intestazione e Stato Connessione */}
+
                     <div className="w-full mb-6">
                         <div className="text-center">
                             <h1 className="text-3xl font-extrabold text-gray-800">KJF Clicker</h1>
                             <p className="text-sm text-gray-500 mt-1">TON Mini App</p>
                         </div>
 
-                        {/* Stato Connessione */}
                         <div className={`mt-4 p-3 rounded-xl flex items-center justify-between transition-colors ${isConnected ? 'bg-green-50' : 'bg-red-50'}`}>
                             <span className={`text-xs font-medium ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
                                 Stato: {isConnected ? 'Wallet Connesso' : 'Disconnesso'}
@@ -183,7 +182,6 @@
                         </div>
                     </div>
 
-                    {/* Area Bilancio */}
                     <div className="flex flex-col items-center flex-grow justify-center">
                         <p className="text-lg text-gray-600">Il tuo Saldo KJF</p>
                         <h2 className="text-6xl font-black text-gray-800 tracking-tighter mt-1 mb-6">
@@ -191,8 +189,7 @@
                             <span className="text-2xl ml-2 text-yellow-500">{KJF_SYMBOL}</span>
                         </h2>
 
-                        {/* Immagine Clicker/Area di Tap (Aggiunto supporto touch/click) */}
-                        <div 
+                        <div
                             className={`relative w-48 h-48 rounded-full shadow-2xl transition-all duration-100 ease-out flex items-center justify-center ${tapAreaClasses}`}
                             onClick={handleTap}
                             onTouchStart={handleTap}
@@ -200,7 +197,6 @@
                             <span className="text-5xl font-bold text-white shadow-sm pointer-events-none">
                                 +{clickValue}
                             </span>
-                            {/* Icona Kim Jong Fun (Placeholder) */}
                             <img src="https://placehold.co/80x80/222222/ffffff?text=KJF" alt="KJF Icon" className="w-20 h-20 absolute" />
                         </div>
 
@@ -209,30 +205,42 @@
                         </p>
                     </div>
 
-                    {/* Pulsante TON Connect */}
                     <div className="w-full mt-6">
                         <TonConnectButton className="ton-connect-button" />
                     </div>
                 </div>
             );
         };
-        
-        // --- RENDERING DELL'APP ---
 
-        // L'URL del manifest è NECESSARIO per TonConnectUIProvider
+        // Manifest URL (assicurati che sia corretto)
         const manifestUrl = 'https://rik9991.github.io/kjf.clicker/tonconnect-manifest.json';
 
-        // Renderizza l'app, avvolgendola in TonConnectUIProvider
+        // Azione: se TonConnect UI Provider non è caricato informeremo in console, ma proviamo comunque a renderizzare (per evitare crash)
+        if (!TonConnectUIProvider) {
+            console.warn('TonConnectUIProvider non trovato. Verifica che il bundle @tonconnect/ui-react sia correttamente caricato.');
+        }
+
         ReactDOM.render(
-            <TonConnectUIProvider 
+            <TonConnectUIProvider
                 manifestUrl={manifestUrl}
-                // Configurazione per l'ambiente Telegram Mini App
-                actionsConfiguration={{ twaReturnUrl: window.Telegram ? window.Telegram.WebApp.initData : '' }}
+                actionsConfiguration={{ twaReturnUrl: (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) ? window.Telegram.WebApp.initData : '' }}
             >
                 <App />
             </TonConnectUIProvider>,
             document.getElementById('root')
         );
     </script>
+
+    <!-- Opzionale: diagnostica console se qualcosa non è presente -->
+    <script>
+        window.addEventListener('load', () => {
+            console.log('Diagnostica caricamento librerie:');
+            console.log(' React:', typeof React !== 'undefined');
+            console.log(' ReactDOM:', typeof ReactDOM !== 'undefined');
+            console.log(' Babel:', typeof Babel !== 'undefined');
+            console.log(' TonConnectUiReact:', typeof window.TonConnectUiReact !== 'undefined');
+        });
+    </script>
 </body>
 </html>
+
