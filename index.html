@@ -33,19 +33,10 @@
         <div class="text-center text-gray-500 p-8">Caricamento dell'applicazione in corso...</div>
     </div>
 
-    <!-- CODICE REACT: usare type="text/babel" evita problemi di escaping/interpolazione -->
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        // TonConnectUiReact è esposto dal file UMD; attenzione al nome esatto
-        const {
-            TonConnectUIProvider,
-            TonConnectButton,
-            useTonAddress,
-            useTonConnectUI,
-            useTonWallet
-        } = window.TonConnectUiReact || {};
+        const { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, useTonWallet } = window.TonConnectUiReact || {};
 
-        // --- Variabili Globali (per il Token KJF) ---
         const INITIAL_TOKEN_BALANCE = 1000000;
         const INITIAL_CLICK_VALUE = 1;
         const KJF_SYMBOL = "KJF";
@@ -59,14 +50,11 @@
 
         const TapFeedback = ({ id, x, y, value }) => {
             const [isVisible, setIsVisible] = useState(true);
-
             useEffect(() => {
                 const timer = setTimeout(() => setIsVisible(false), 800);
                 return () => clearTimeout(timer);
             }, []);
-
             if (!isVisible) return null;
-
             const style = {
                 position: 'absolute',
                 left: x,
@@ -77,7 +65,6 @@
                 opacity: 1,
                 animation: 'tap-up 0.8s ease-out forwards',
             };
-
             return (
                 <div style={style} className="text-2xl font-bold text-green-400 select-none">
                     +{value}
@@ -91,62 +78,40 @@
             const [feedback, setFeedback] = useState([]);
             const [isConnected, setIsConnected] = useState(false);
 
-            // Hook TonConnect (se il bundle è caricato)
             const rawAddress = useTonAddress ? useTonAddress() : null;
             const wallet = useTonWallet ? useTonWallet() : null;
             const tonConnectUI = useTonConnectUI ? useTonConnectUI() : null;
             const connectUI = tonConnectUI ? tonConnectUI.connectUI : null;
 
-            // Controlla se siamo nell'ambiente Telegram WebApp (TWA)
             const isTWA = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
 
             useEffect(() => {
                 setIsConnected(!!wallet);
-
-                if (isTWA && window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.ready === 'function') {
+                if (isTWA && window.Telegram.WebApp && typeof window.Telegram.WebApp.ready === 'function') {
                     window.Telegram.WebApp.ready();
-                    if (typeof window.Telegram.WebApp.expand === 'function') {
-                        window.Telegram.WebApp.expand();
-                    }
+                    if (typeof window.Telegram.WebApp.expand === 'function') window.Telegram.WebApp.expand();
                 }
             }, [wallet, isTWA]);
 
             const userFriendlyAddress = useMemo(() => {
-                if (rawAddress) {
-                    return rawAddress.slice(0, 4) + '...' + rawAddress.slice(-4);
-                }
+                if (rawAddress) return rawAddress.slice(0, 4) + '...' + rawAddress.slice(-4);
                 return 'Non Connesso';
             }, [rawAddress]);
 
             const handleTap = (e) => {
-                // Se TonConnect non è disponibile, apriamo il modal se possibile
                 if (!isConnected) {
-                    if (connectUI && typeof connectUI.openModal === 'function') {
-                        connectUI.openModal();
-                    } else {
-                        // fallback: messaggio in console
-                        console.warn('Wallet non connesso e TonConnect UI non disponibile.');
-                    }
+                    if (connectUI && typeof connectUI.openModal === 'function') connectUI.openModal();
+                    else console.warn('Wallet non connesso e TonConnect UI non disponibile.');
                     return;
                 }
 
                 setBalance(b => b + clickValue);
+                const clientX = (e.changedTouches?.[0]?.clientX) || e.clientX || window.innerWidth / 2;
+                const clientY = (e.changedTouches?.[0]?.clientY) || e.clientY || window.innerHeight / 2;
 
-                const clientX = (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientX) || e.clientX || window.innerWidth / 2;
-                const clientY = (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY) || e.clientY || window.innerHeight / 2;
-
-                const newFeedback = {
-                    id: Date.now(),
-                    x: clientX,
-                    y: clientY,
-                    value: clickValue,
-                };
-
+                const newFeedback = { id: Date.now(), x: clientX, y: clientY, value: clickValue };
                 setFeedback(f => [...f, newFeedback]);
-
-                setTimeout(() => {
-                    setFeedback(f => f.filter(item => item.id !== newFeedback.id));
-                }, 800);
+                setTimeout(() => setFeedback(f => f.filter(item => item.id !== newFeedback.id)), 800);
             };
 
             const tapAreaClasses = isConnected
@@ -162,9 +127,7 @@
                         }
                     `}</style>
 
-                    {feedback.map(f => (
-                        <TapFeedback key={f.id} id={f.id} x={f.x} y={f.y} value={f.value} />
-                    ))}
+                    {feedback.map(f => <TapFeedback key={f.id} id={f.id} x={f.x} y={f.y} value={f.value} />)}
 
                     <div className="w-full mb-6">
                         <div className="text-center">
@@ -200,9 +163,7 @@
                             <img src="https://placehold.co/80x80/222222/ffffff?text=KJF" alt="KJF Icon" className="w-20 h-20 absolute" />
                         </div>
 
-                        <p className="mt-4 text-sm text-gray-500">
-                            Clicca sull'area per minare!
-                        </p>
+                        <p className="mt-4 text-sm text-gray-500">Clicca sull'area per minare!</p>
                     </div>
 
                     <div className="w-full mt-6">
@@ -212,35 +173,18 @@
             );
         };
 
-        // Manifest URL (assicurati che sia corretto)
-        const manifestUrl = 'https://rik9991.github.io/kjf.clicker/tonconnect-manifest.json';
-
-        // Azione: se TonConnect UI Provider non è caricato informeremo in console, ma proviamo comunque a renderizzare (per evitare crash)
-        if (!TonConnectUIProvider) {
-            console.warn('TonConnectUIProvider non trovato. Verifica che il bundle @tonconnect/ui-react sia correttamente caricato.');
-        }
+        // Manifest URL aggiornato
+        const manifestUrl = 'https://cryptodapp91.github.io/kjf.clicker/tonconnect-manifest.json';
 
         ReactDOM.render(
             <TonConnectUIProvider
                 manifestUrl={manifestUrl}
-                actionsConfiguration={{ twaReturnUrl: (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) ? window.Telegram.WebApp.initData : '' }}
+                actionsConfiguration={{ twaReturnUrl: window.Telegram?.WebApp?.initData || '' }}
             >
                 <App />
             </TonConnectUIProvider>,
             document.getElementById('root')
         );
     </script>
-
-    <!-- Opzionale: diagnostica console se qualcosa non è presente -->
-    <script>
-        window.addEventListener('load', () => {
-            console.log('Diagnostica caricamento librerie:');
-            console.log(' React:', typeof React !== 'undefined');
-            console.log(' ReactDOM:', typeof ReactDOM !== 'undefined');
-            console.log(' Babel:', typeof Babel !== 'undefined');
-            console.log(' TonConnectUiReact:', typeof window.TonConnectUiReact !== 'undefined');
-        });
-    </script>
 </body>
 </html>
-
